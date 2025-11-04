@@ -5,11 +5,11 @@ import os
 import joblib
 
 # Import des settings et des moteurs utilitaires
-from src.setting import capital, riskMax_trade
-from src.utils.data_engine import DataEngineer
-from src.utils.features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
-from src.utils.label_engine import PrimaryLabel, MetaLabel
-from src.utils.model_engine import ModelEngine
+from setting import capital, riskMax_trade
+from utils.data_engine import DataEngineer
+from utils.features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
+from utils.label_engine import PrimaryLabel, MetaLabel
+from utils.model_engine import ModelEngine
 from utils.risk_engine import BetSizing
 from test.optimizer import StrategyOptimizer
 from utils.reporting import summarize_signal

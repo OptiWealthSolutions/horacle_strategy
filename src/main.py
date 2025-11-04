@@ -4,14 +4,14 @@ import warnings
 from datetime import datetime
 
 # Importer les tickers depuis les settings
-from src.setting import test_FX_tickers, fx_tickers
+from setting import test_FX_tickers, fx_tickers
 
 # Importer la classe Stratégie principale
-from src.strategy import Strategy
+from strategy import Strategy
 
 # Importer les utilitaires de backtest et de reporting
-from src.utils.backtest_engine import BacktestEngine
-from src.utils.reporting import generate_pdf_report
+from utils.backtest_engine import BacktestEngine
+from utils.reporting import generate_pdf_report
 
 warnings.filterwarnings('ignore')
 
