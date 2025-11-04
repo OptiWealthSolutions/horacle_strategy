@@ -16,9 +16,6 @@ from utils.reporting import generate_pdf_report
 warnings.filterwarnings('ignore')
 
 def run_strategy_for_tickers(ticker_list, force_retrain=False, optimize=False, run_backtests=True):
-    """
-    Exécute la stratégie pour une liste de tickers et rassemble les résultats.
-    """
     all_summaries = []
     all_backtest_stats = []
     
@@ -72,8 +69,8 @@ if __name__ == "__main__":
     RUN_BACKTESTS = True
     
     # Choisir la liste de tickers
-    # tickers_to_run = test_FX_tickers # Pour un test rapide
-    tickers_to_run = fx_tickers # Pour la "production"
+    tickers_to_run = test_FX_tickers # Pour un test rapide
+    #tickers_to_run = fx_tickers # Pour la "production"
     
     print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")
     

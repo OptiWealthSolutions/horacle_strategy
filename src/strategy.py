@@ -10,8 +10,8 @@ from utils.data_engine import DataEngineer
 from utils.features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
 from utils.label_engine import PrimaryLabel, MetaLabel
 from utils.model_engine import ModelEngine
-from utils.risk_engine import BetSizing
-from test.optimizer import StrategyOptimizer
+from src.utils.risk_engine import BetSizing
+from src.utils.optimizer import StrategyOptimizer
 from utils.reporting import summarize_signal
 
 class Strategy:
