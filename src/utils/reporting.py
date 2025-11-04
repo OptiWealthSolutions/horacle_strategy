@@ -105,6 +105,7 @@ def generate_pdf_report(data_summary, backtest_stats_list, pdf_path="summary_sig
                     "Win Rate [%]": f"{stats.get('Win Rate [%]', 0):.2f}",
                     "Total Trades": f"{stats.get('Total Trades', 0)}"
                 }
+                # Utiliser pd.concat pour éviter l'avertissement 'FutureWarning'
                 bt_summary_df = pd.concat([bt_summary_df, pd.DataFrame([row])], ignore_index=True)
                 
             bt_table_data = [list(bt_summary_df.columns)] + bt_summary_df.values.tolist()
