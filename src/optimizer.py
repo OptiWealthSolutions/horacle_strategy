@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.preprocessing import StandardScaler
 from utils.label_engine import PurgedKFold
-from src.setting import primary_model_params, meta_model_params, embargo # Import des settings
+from setting import primary_model_params, meta_model_params, embargo # Import des settings
 
 class StrategyOptimizer:
     def __init__(self, model_type='primary', n_splits=5):

@@ -158,6 +158,11 @@ class PrimaryLabel:
         def _find_first_barrier_hit(prices_arr, entry_idx, pt, sl, max_hold):
             entry_price = prices_arr[entry_idx]
             end_idx = min(entry_idx + max_hold, len(prices_arr) - 1)
+            
+            # Cas où l'entry_price est invalide (évite division par zéro)
+            if entry_price == 0:
+                return 0, end_idx
+
             for i in range(entry_idx + 1, end_idx + 1):
                 raw_ret = (prices_arr[i] - entry_price) / entry_price
                 if raw_ret >= pt:
@@ -165,11 +170,17 @@ class PrimaryLabel:
                 elif raw_ret <= -sl:
                     return -1, i  # Stop loss hit
             
-            # Gestion du cas où le prix de sortie est identique à l'entrée
+            # Si la boucle se termine (Time barrier hit), retourner le label basé sur le prix final
+            # et TOUJOURS retourner end_idx
+            
             final_ret = (prices_arr[end_idx] - entry_price) / entry_price
-            if final_ret > 0: return 1 # Expiration en profit
-            elif final_ret < 0: return -1 # Expiration en perte
-            else: return 0 # Expiration neutre
+            
+            if final_ret > 0: 
+                return 1, end_idx # Expiration en profit
+            elif final_ret < 0: 
+                return -1, end_idx # Expiration en perte
+            else: 
+                return 0, end_idx # Expiration neutre
             
 
         if volatility_scaling:
@@ -272,15 +283,44 @@ class MetaLabel:
         pass
 
     def metaLabeling(self, primary_predictions, label_returns):
-        # S'assurer que les inputs sont des Series/np.array
+        """
+        Crée les labels pour le méta-modèle.
+        Le but est de prédire si un signal du modèle primaire sera profitable.
+        Label = 1 si (signal != 0 ET trade profitable)
+        Label = 0 sinon
+        
+        CORRIGÉ : Renvoie une pd.Series avec l'index de label_returns.
+        """
+        
+        # S'assurer que label_returns est une Series pour préserver l'index
+        if not isinstance(label_returns, pd.Series):
+            try:
+                # Si ce n'est pas une Series, on suppose qu'il n'y a pas d'index à sauver
+                # (ceci ne devrait pas arriver dans votre pipeline)
+                label_returns = pd.Series(label_returns)
+            except:
+                 raise TypeError("label_returns doit être convertible en pandas.Series.")
+        
+        # Obtenir les valeurs numpy pour le calcul
         if isinstance(primary_predictions, pd.Series):
-            primary_predictions = primary_predictions.values
-        if isinstance(label_returns, pd.Series):
-            label_returns = label_returns.values
+            primary_predictions_values = primary_predictions.values
+        else:
+            primary_predictions_values = primary_predictions # C'est déjà un np.array
 
-        model_predictions = (primary_predictions != 0)  # True si le modèle a généré un signal
-        actual_profitable = (label_returns > 0)         # True si le trade était profitable
+        label_returns_values = label_returns.values
+
+        # Logique de calcul (inchangée)
+        model_predictions = (primary_predictions_values != 0)  # True si signal
+        actual_profitable = (label_returns_values > 0)         # True si profitable
         
-        meta_labels = (model_predictions & actual_profitable).astype(int)
+        meta_labels_values = (model_predictions & actual_profitable).astype(int)
         
-        return meta_labels
+        # --- CORRECTION CLÉ ---
+        # Retourner une Series, en utilisant l'index de label_returns pour l'alignement
+        meta_labels_series = pd.Series(
+            meta_labels_values, 
+            index=label_returns.index, 
+            name="meta_label"
+        )
+        
+        return meta_labels_series

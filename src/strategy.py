@@ -10,9 +10,9 @@ from utils.data_engine import DataEngineer
 from utils.features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
 from utils.label_engine import PrimaryLabel, MetaLabel
 from utils.model_engine import ModelEngine
-from src.utils.risk_engine import BetSizing
-from src.utils.optimizer import StrategyOptimizer
-from utils.reporting import summarize_signal
+from utils.risk_engine import BetSizing
+from optimizer import StrategyOptimizer
+from src.utils.reporting import summarize_signal
 
 class Strategy:
     def __init__(self, ticker, model_dir="models"):
@@ -99,8 +99,9 @@ class Strategy:
         print("Traitement du modèle primaire...")
         primary_model_path = self.get_model_path('primary')
         
-        if not force_retrain and not optimize_models and os.path.exists(primary_model_path):
-            self.primary_model = self.model_engine.load_model(primary_model_path)
+        if not force_retrain and not optimize_models:
+            # --- CORRIGÉ ---
+            self.primary_model = self.model_engine.load_model(primary_model_path, model_type='primary')
             if self.primary_model is None: # Echec du chargement
                  force_retrain = True
         
@@ -113,21 +114,29 @@ class Strategy:
                     self.data['Target'], 
                     self.data['SampleWeight']
                 )
+                # --- CORRIGÉ ---
+                # Récupérer le scaler fitté de l'optimiseur
+                self.model_engine.primary_scaler = optimizer.scaler
             else:
                 print("Entraînement du modèle primaire (par défaut)...")
                 self.primary_model = self.model_engine.build_primary_model()
+                # --- CORRIGÉ ---
                 self.model_engine.train_model(
                     self.primary_model, 
                     self.data_features, 
                     self.data['Target'], 
-                    self.data['SampleWeight']
+                    self.data['SampleWeight'],
+                    model_type='primary' # <-- Ajouté
                 )
-            self.model_engine.save_model(self.primary_model, primary_model_path)
+            # --- CORRIGÉ ---
+            self.model_engine.save_model(self.primary_model, primary_model_path, model_type='primary')
         
         # Prédiction
+        # --- CORRIGÉ ---
         self.primary_predictions, self.meta_data_proba, self.last_proba = self.model_engine.predict(
             self.primary_model, 
-            self.data_features
+            self.data_features,
+            model_type='primary' # <-- Ajouté
         )
         self.data['primary_signal'] = self.primary_predictions
 
@@ -140,6 +149,7 @@ class Strategy:
         self.meta_features['accuracy'] = self.meta_feature_engine.getAccuracydata(self.data['Target'], self.primary_predictions)
         
         # 6. Meta Label
+        # (Correction était dans label_engine.py, pas ici)
         self.meta_labels = self.meta_label_engine.metaLabeling(
             self.primary_predictions, 
             self.data['label_return']
@@ -158,8 +168,9 @@ class Strategy:
         print("Traitement du méta-modèle...")
         meta_model_path = self.get_model_path('meta')
 
-        if not force_retrain and not optimize_models and os.path.exists(meta_model_path):
-            self.meta_model = self.model_engine.load_model(meta_model_path)
+        if not force_retrain and not optimize_models:
+            # --- CORRIGÉ ---
+            self.meta_model = self.model_engine.load_model(meta_model_path, model_type='meta')
             if self.meta_model is None:
                 force_retrain = True
                 
@@ -171,23 +182,29 @@ class Strategy:
                     self.meta_features, 
                     self.meta_labels
                 )
+                # --- CORRIGÉ ---
+                # Récupérer le scaler fitté
+                self.model_engine.meta_scaler = meta_optimizer.scaler
             else:
                 print("Entraînement du méta-modèle (par défaut)...")
                 self.meta_model = self.model_engine.build_meta_model()
+                # --- CORRIGÉ ---
                 self.model_engine.train_model(
                     self.meta_model, 
                     self.meta_features, 
-                    self.meta_labels
+                    self.meta_labels,
+                    model_type='meta' # <-- Ajouté
                 )
-            self.model_engine.save_model(self.meta_model, meta_model_path)
+            # --- CORRIGÉ ---
+            self.model_engine.save_model(self.meta_model, meta_model_path, model_type='meta')
         
         # Prédiction Méta (sur toutes les méta-features)
+        # --- CORRIGÉ ---
         meta_preds, _, self.last_proba_meta = self.model_engine.predict(
             self.meta_model, 
-            self.meta_features, # Prédire sur le set pour lequel on a des features
-            model_type='meta'
+            self.meta_features,
+            model_type='meta' # <-- Ajouté
         )
-        # Assigner les signaux méta au dataframe principal
         self.data['meta_signal'] = pd.Series(meta_preds, index=self.meta_features.index)
         self.data['meta_signal'] = self.data['meta_signal'].fillna(0) # 0 par défaut
 
@@ -219,6 +236,10 @@ class Strategy:
         else:
             atr_value = 0.01 # Fallback
         
+        # S'assurer que 'atr_value' existe avant d'y accéder
+        if 'atr_value' not in self.data.columns:
+            self.data['atr_value'] = np.nan
+            
         self.data.loc[self.data.index[-1], 'atr_value'] = atr_value # Stocker l'ATR
         
         shares, stop = self.bet_sizer.position_size_with_atr(
