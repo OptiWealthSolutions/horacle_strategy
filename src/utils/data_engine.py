@@ -9,8 +9,8 @@ import numpy as np
 class DataEngineer:
     def __init__(self, ticker):
         self.ticker = ticker
-        self.PERIOD = "25y"  # Période de 25 ans
-        self.INTERVAL = "1d" # Intervalle d'un jour
+        self.PERIOD = "6mo"  # Période de 25 ans
+        self.INTERVAL = "4h" # Intervalle d'un jour
         self.SHIFT = 4       # Shift pour le calcul du 'return'
     
     def getDataLoad(self):
