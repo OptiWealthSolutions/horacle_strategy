@@ -1,9 +1,9 @@
 import vectorbt as vbt
 import vectorbt as vbt
 import matplotlib.pyplot as plt
-
+from setting import LTF_Start_Date, End_Date
 class BacktestEngine:
-    def __init__(self, data, start_date="2012-01-01", end_date="2025-01-01"):
+    def __init__(self, data, start_date=LTF_Start_Date, end_date=End_Date):
         self.data_backtest = data.loc[start_date:end_date].copy()
         self.pf = None
         self.stats = None
@@ -37,7 +37,7 @@ class BacktestEngine:
                 short_exits=(self.data_backtest['signal'] == 1),  # Sortir du short si signal d'achat
                 init_cash=10_000,
                 fees=0.005, # 0.5% de frais
-                freq="1D"
+                freq="1h"
             )
             
             self.stats = self.pf.stats()

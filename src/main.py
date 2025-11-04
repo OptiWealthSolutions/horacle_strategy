@@ -69,7 +69,7 @@ if __name__ == "__main__":
     RUN_BACKTESTS = True
     
     # Choisir la liste de tickers
-    tickers_to_run = test_FX_tickers # Pour un test rapide
+    tickers_to_run = ["EURUSD=X"] # Pour un test rapide
     #tickers_to_run = fx_tickers # Pour la "production"
     
     print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")

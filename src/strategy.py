@@ -12,7 +12,7 @@ from utils.label_engine import PrimaryLabel, MetaLabel
 from utils.model_engine import ModelEngine
 from utils.risk_engine import BetSizing
 from optimizer import StrategyOptimizer
-from src.utils.reporting import summarize_signal
+from utils.reporting import summarize_signal
 
 class Strategy:
     def __init__(self, ticker, model_dir="models"):
