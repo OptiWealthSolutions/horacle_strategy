@@ -1,88 +1,107 @@
+# src/main.py
+import pandas as pd
+import warnings
+from datetime import datetime
+
+# Importer les tickers depuis les settings
+from src.setting import test_FX_tickers, fx_tickers
+
+# Importer la classe Stratégie principale
+from src.strategy import Strategy
+
+# Importer les utilitaires de backtest et de reporting
+from src.utils.backtest_engine import BacktestEngine
+from src.utils.reporting import generate_pdf_report
+
+warnings.filterwarnings('ignore')
+
+def run_strategy_for_tickers(ticker_list, force_retrain=False, optimize=False, run_backtests=True):
+    """
+    Exécute la stratégie pour une liste de tickers et rassemble les résultats.
+    """
+    all_summaries = []
+    all_backtest_stats = []
+    
+    for ticker in ticker_list:
+        try:
+            # 1. Initialiser la stratégie pour le ticker
+            strat = Strategy(ticker)
+            
+            # 2. Exécuter le pipeline complet (data, features, models)
+            pipeline_success = strat.run_pipeline(
+                force_retrain=force_retrain, 
+                optimize_models=optimize
+            )
+            
+            if not pipeline_success:
+                print(f"Échec du pipeline pour {ticker}. Passage au suivant.")
+                continue
+                
+            # 3. Obtenir le signal de trading actuel
+            summary_data = strat.get_trade_signal()
+            
+            if summary_data is not None and not summary_data.empty:
+                all_summaries.append(summary_data)
+
+            # 4. (Optionnel) Exécuter le backtest
+            if run_backtests:
+                print(f"Exécution du backtest pour {ticker}...")
+                bt = BacktestEngine(strat.data) # Passer les données avec signaux
+                stats = bt.run_backtest()
+                if stats is not None:
+                    all_backtest_stats.append((ticker, stats))
+                    # bt.plot_backtest(ticker) # Décommenter pour voir les graphiques
+                
+        except Exception as e:
+            print(f"--- ERREUR MAJEURE sur {ticker}: {e} ---")
+
+    return all_summaries, all_backtest_stats
 
 
+if __name__ == "__main__":
+    
+    # --- Configuration de l'exécution ---
+    
+    # Mettre à True pour forcer le ré-entraînement de tous les modèles
+    FORCE_RETRAIN_MODELS = False 
+    
+    # Mettre à True pour lancer le (long) processus d'optimisation (GridSearch)
+    OPTIMIZE_MODELS = False 
+    
+    # Mettre à True pour calculer les backtests (peut être long)
+    RUN_BACKTESTS = True
+    
+    # Choisir la liste de tickers
+    # tickers_to_run = test_FX_tickers # Pour un test rapide
+    tickers_to_run = fx_tickers # Pour la "production"
+    
+    print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")
+    
+    # --- Exécution ---
+    summaries, backtest_stats = run_strategy_for_tickers(
+        tickers_to_run,
+        force_retrain=FORCE_RETRAIN_MODELS,
+        optimize=OPTIMIZE_MODELS,
+        run_backtests=RUN_BACKTESTS
+    )
 
-class Strategy():
-    def __init__():
+    # --- Génération du Rapport ---
+    if summaries:
+        final_summary_df = pd.concat(summaries, ignore_index=True)
+        print("\n=== RÉSUMÉ GLOBAL DES SIGNAUX ===")
+        print(final_summary_df)
+        
+        # Sauvegarder en CSV
+        csv_path = "all_signals.csv"
+        final_summary_df.to_csv(csv_path, index=False)
+        print(f"Signaux sauvegardés dans {csv_path}")
+        
+    else:
+        print("\n=== AUCUN SIGNAL ACTIF TROUVÉ ===")
+        final_summary_df = pd.DataFrame() # DF vide pour le PDF
 
-        pass
-    def main(self):
-        ms = 1
-        ms.getRSI()
-        ms.PriceMomentum()
-        ms.getLagReturns()
-        ms.PriceAccel()
-        ms.getPct52WeekLow()
-        ms.getPct52WeekHigh()
-        ms.getVol()
-        ms.getMacroData()
-        ms.getFeaturesDataSet()
-        ms.getLabels()
-        ms.getSampleWeight()
-        ms.PrimaryModel()
-        ms.getEntropy()
-        ms.getMaxProbability()
-        ms.getMarginConfidence()
-        ms.getF1Scoredata(ms.data['Target'], ms.primary_predictions)
-        ms.getAccuracydata(ms.data['Target'], ms.primary_predictions)
-        ms.getMetaFeaturesdata()
-        ms.metaLabeling()
-        ms.MetaModel()
-        conf_score = ms.computeConfidenceScore()
-        bs = BetSizing(ms.ticker)
-        last_price = bs.getlastPrice()
-        capital = 885
-        risk_pct = 0.01
-        if 'log_return' in ms.data.columns:
-            atr_value = ms.data['log_return'].rolling(14).std().iloc[-1]
-        else:
-            atr_value = 0.01
-        shares, stop = bs.position_size_with_atr(capital, risk_pct, last_price, atr_value)
-        ms.data['atr_value'] = atr_value
-        summary_data = summarize_signal(ms, shares, stop, last_price, capital, risk_pct, conf_score)
-        return ms, summary_data
+    # Générer le PDF
+    pdf_path = f"trading_report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
+    generate_pdf_report(final_summary_df, backtest_stats, pdf_path=pdf_path)
 
-    if __name__ == "__main__":
-        results = {}
-        summaries = []
-        for ticker in ticker_list:
-            try:
-                ms, summary_data = main(ticker)
-                results[ticker] = ms
-                if summary_data is not None and not summary_data.empty:
-                    summaries.append(summary_data)
-            except Exception as e:
-                print(f"Erreur sur {ticker}: {e}")
-        if summaries:
-            data_summary = pd.concat(summaries, ignore_index=True)
-            print("\n=== SIGNAL SUMMARY ===")
-            print(data_summary)
-            all_signals_path = "all_signals.csv"
-            data_summary.to_csv(all_signals_path, index=False)
-            print(f"All signals saved to {all_signals_path}")
-            try:
-                pdf_path = "summary_signals.pdf"
-                doc = SimpleDocTemplate(pdf_path, pagesize=A4)
-                elements = []
-                styles = getSampleStyleSheet()
-                title = Paragraph("Trading Signal Summary Report", styles["Heading1"])
-                elements.append(title)
-                elements.append(Spacer(1, 12))
-                table_data = [list(data_summary.columns)] + data_summary.values.tolist()
-                table = Table(table_data)
-                table_style = TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ])
-                table.setStyle(table_style)
-                elements.append(table)
-                doc.build(elements)
-                print(f"PDF summary saved as: {pdf_path}")
-            except Exception as e:
-                print(f"Erreur lors de la génération du PDF: {e}")
-        else:
-            print("\nNo valid signals to summarize.")
-
+    print("\n--- Exécution terminée ---")
