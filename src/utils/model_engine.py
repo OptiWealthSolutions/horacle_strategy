@@ -17,6 +17,11 @@ from sklearn.ensemble import GradientBoostingClassifier
 from xgboost import XGBClassifier
 import os
 from label_engine import PurgedKFold
+
+
+#intern function and class : 
+from features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
+from label_engine import PrimaryLabel, MetaLabel
 # --- PDF reportlab imports ---
 
 

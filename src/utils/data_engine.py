@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from src.strategy.momentum.setting import HTF_interval, LTF_interval,HTF_Start_Date,LTF_Start_Date, End_Date
+from src.setting import HTF_interval, LTF_interval,HTF_Start_Date,LTF_Start_Date, End_Date
 
 
 class DataEngineer():
