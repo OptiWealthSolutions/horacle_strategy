@@ -20,6 +20,10 @@ class Strategy:
         self.model_dir = model_dir
         os.makedirs(self.model_dir, exist_ok=True)
 
+        # --- Initialisation des Moteurs ---
+        # MODIFIÉ : Créer deux moteurs de données, un pour le LTF et un pour le HTF
+        self.ltf_data_engine = DataEngineer(self.ticker, interval="1d", period="25y")
+        self.htf_data_engine = DataEngineer(self.ticker, interval="5d", period="25y")
         # --- Moteurs ---
         self.data_engine = DataEngineer(self.ticker)
         self.feature_engine = PrimaryFeaturesEngineer()
@@ -57,16 +61,16 @@ class Strategy:
     def run_pipeline(self, force_retrain=False, optimize_models=False):
         print(f"\n--- Exécution du pipeline pour {self.ticker} ---")
         
-        # ... (Étapes 1, 2, 3 inchangées) ...
-        # 1. Chargement données...
-        self.data = self.data_engine.getDataLoad()
+        self.data = self.ltf_data_engine.getDataLoad()
+        self.htf_data = self.htf_data_engine.getDataLoad()
+        
         if self.data.empty:
-            print(f"Aucune donnée chargée pour {self.ticker}. Arrêt.")
+            print(f"Aucune donnée LTF (1d) chargée pour {self.ticker}. Arrêt.")
             return False
-
-        # 2. Features Primaires...
+        
         print("Calcul des features primaires...")
         self.data = self.feature_engine.getRSI(self.data)
+        self.data = self.feature_engine.getYieldSpread(self.data, self.ticker)
         self.data = self.feature_engine.PriceMomentum(self.data)
         self.data = self.feature_engine.getLagReturns(self.data, lags=[12])
         self.data = self.feature_engine.PriceAccel(self.data)
@@ -109,7 +113,6 @@ class Strategy:
         if force_retrain or optimize_models or self.primary_model is None:
             if optimize_models:
                 optimizer = StrategyOptimizer(model_type='primary')
-                # --- MODIFICATION : Capturer les 3 retours ---
                 self.primary_model, self.primary_acc, self.primary_f1 = optimizer.optimize(
                     self.data_features, 
                     self.data['Target'], 
@@ -119,7 +122,6 @@ class Strategy:
             else:
                 print("Entraînement du modèle primaire (par défaut)...")
                 self.primary_model = self.model_engine.build_primary_model()
-                # --- MODIFICATION : Capturer les 3 retours ---
                 self.primary_model, self.primary_acc, self.primary_f1 = self.model_engine.train_model(
                     self.primary_model, 
                     self.data_features, 

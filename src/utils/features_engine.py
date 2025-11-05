@@ -3,8 +3,8 @@ import yfinance as yf
 import pandas_datareader.data as web
 from sklearn.metrics import accuracy_score, f1_score
 import pandas as pd
-
-
+from ta.trend import ADXIndicator, macd 
+from ta.momentum import rsi
 class PrimaryFeaturesEngineer:
     def __init__(self):
         pass
@@ -17,7 +17,7 @@ class PrimaryFeaturesEngineer:
         data['RSI'] = 100 - (100 / (1 + rs))
         return data
     
-    def getYieldSpread( data, ticker):
+    def getYieldSpread(self, data, ticker):
         """
         Calcule l'écart de taux (yield spread) en utilisant UNIQUEMENT l'API FRED
         pour les obligations à 10 ans.
@@ -162,6 +162,42 @@ class PrimaryFeaturesEngineer:
         data['TWI'] = data['TWI'].fillna(0)
                 
         return data
+    def add_trend_features(self, data):
+        print("Calcul des features de tendance (ADX, MA Cross)...")
+        adx_indicator = ADXIndicator(high=data['High'], low=data['Low'], close=data['Close'], window=14)
+        data['ADX_14'] = adx_indicator.adx() # Force de la tendance
+        data['ADX_pos'] = adx_indicator.adx_pos() # Force directionnelle positive
+        data['ADX_neg'] = adx_indicator.adx_neg() # Force directionnelle négative
+    
+        sma_50 = data['Close'].rolling(window=50).mean()
+        sma_200 = data['Close'].rolling(window=200).mean()
+        
+        data['pct_above_SMA200'] = (data['Close'] / sma_200) - 1
+    
+        data['SMA_50_vs_SMA_200'] = (sma_50 / sma_200) - 1
+
+        return data
+
+    def add_mtf_features(self, ltf_data, htf_data):
+
+        print("Calcul des features Multi-TimeFrame (MTF)...")
+        if htf_data.empty:
+            print("Avertissement: Données HTF vides, pas de features MTF ajoutées.")
+            return ltf_data
+
+        htf_features = pd.DataFrame(index=htf_data.index)
+        htf_features['HTF_RSI'] = rsi(htf_data['Close'], window=14)
+        htf_features['HTF_SMA_20'] = htf_data['Close'].rolling(window=20).mean()
+
+        merged_data = ltf_data.join(htf_features)
+        
+        merged_data['HTF_RSI'] = merged_data['HTF_RSI'].ffill()
+        merged_data['HTF_SMA_20'] = merged_data['HTF_SMA_20'].ffill()
+
+        merged_data['pct_above_HTF_SMA_20'] = (merged_data['Close'] / merged_data['HTF_SMA_20']) - 1
+        
+        print("Features MTF ajoutées.")
+        return merged_data
 
     def getFeaturesDataSet(self, data):
         # Supprime les colonnes inutiles pour le modèle
