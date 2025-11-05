@@ -13,7 +13,7 @@ from utils.model_engine import ModelEngine
 from utils.risk_engine import BetSizing
 from optimizer import StrategyOptimizer
 from utils.reporting import summarize_signal
-
+from analysis_engine import AnalysisEngine
 class Strategy:
     def __init__(self, ticker, model_dir="models"):
         self.ticker = ticker
@@ -205,6 +205,38 @@ class Strategy:
         )
         self.data['meta_signal'] = pd.Series(meta_preds, index=self.meta_features.index)
         self.data['meta_signal'] = self.data['meta_signal'].fillna(0)
+        self.data['meta_signal'] = pd.Series(meta_preds, index=self.meta_features.index)
+        self.data['meta_signal'] = self.data['meta_signal'].fillna(0) # 0 par défaut
+
+        # 8. Calcul du score de confiance final
+        self.conf_score = self.model_engine.computeConfidenceScore(self.last_proba, self.last_proba_meta)
+        print(f"Pipeline terminé pour {self.ticker}. Score de confiance: {self.conf_score:.2%}")
+        
+        
+        # --- SECTION D'ANALYSE AJOUTÉE ---
+        # 9. Générer le rapport d'analyse détaillé
+        try:
+            analyzer = AnalysisEngine(self.ticker)
+            
+            # Aligner les données pour l'analyse
+            
+            # 1. Données Primaires (alignées sur data_features)
+            aligned_primary_true = self.data.loc[self.data_features.index, 'Target']
+            aligned_primary_pred = self.data.loc[self.data_features.index, 'primary_signal']
+            
+            # 2. Données Méta (alignées sur meta_features)
+            aligned_meta_true = self.meta_labels.reindex(self.meta_features.index)
+            # 'meta_preds' est un np.array, il faut le convertir en Série avec le bon index
+            aligned_meta_pred = pd.Series(meta_preds, index=self.meta_features.index)
+
+            analyzer.generate_analysis_report(
+                primary_y_true=aligned_primary_true,
+                primary_y_pred=aligned_primary_pred,
+                meta_y_true=aligned_meta_true,
+                meta_y_pred=aligned_meta_pred
+            )
+        except Exception as e:
+            print(f"Erreur lors de la génération du rapport d'analyse: {e}")
 
         # 8. Calcul du score de confiance final
         self.conf_score = self.model_engine.computeConfidenceScore(self.last_proba, self.last_proba_meta)

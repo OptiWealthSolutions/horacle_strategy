@@ -2,7 +2,7 @@
 import pandas as pd
 import warnings
 from datetime import datetime
-
+import os 
 # Importer les tickers depuis les settings
 from setting import test_FX_tickers, fx_tickers
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     RUN_BACKTESTS = True
     
     # Choisir la liste de tickers
-    tickers_to_run = ['EURUSD=X']# Pour un test rapide
+    tickers_to_run = test_FX_tickers# Pour un test rapide
     #tickers_to_run = fx_tickers # Pour la "production"
     
     print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")
@@ -101,4 +101,8 @@ if __name__ == "__main__":
     pdf_path = f"trading_report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
     generate_pdf_report(final_summary_df, backtest_stats, pdf_path=pdf_path)
 
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("reports", exist_ok=True) # <-- AJOUTER CECI
+    
+    print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")
     print("\n--- Exécution terminée ---")
