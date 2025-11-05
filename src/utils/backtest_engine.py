@@ -37,7 +37,7 @@ class BacktestEngine:
                 short_exits=(self.data_backtest['signal'] == 1),  # Sortir du short si signal d'achat
                 init_cash=1000,
                 fees=0.005, # 0.5% de frais
-                freq="1h"
+                freq="1d"
             )
             
             self.stats = self.pf.stats()
