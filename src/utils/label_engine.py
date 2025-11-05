@@ -147,7 +147,7 @@ class PrimaryLabel:
     def __init__(self):
         pass
 
-    def getLabels(self, data, max_hold_days=5, stop_loss=0.01, profit_target=0.02, volatility_scaling=True):
+    def getLabels(self, data, max_hold_days=12, stop_loss=0.01, profit_target=0.02, volatility_scaling=True):
         prices = data['Close']
         n = len(prices)
         prices_array = prices.values
