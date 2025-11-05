@@ -208,6 +208,7 @@ class PrimaryFeaturesEngineer:
                             'primary_signal', 'meta_signal'] # Etre exhaustif
         
         data_features = data.drop(columns=features_to_drop, axis=1, errors='ignore')
+        data.to_csv("data_Features.csv")
         return data_features
 
 
