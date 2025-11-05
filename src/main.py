@@ -63,7 +63,7 @@ if __name__ == "__main__":
     FORCE_RETRAIN_MODELS = True
     
     # Mettre à True pour lancer le (long) processus d'optimisation (GridSearch)
-    OPTIMIZE_MODELS = True
+    OPTIMIZE_MODELS = False
     
     # Mettre à True pour calculer les backtests (peut être long)
     RUN_BACKTESTS = True

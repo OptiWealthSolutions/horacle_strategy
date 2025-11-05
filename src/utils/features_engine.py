@@ -32,13 +32,18 @@ class PrimaryFeaturesEngineer:
         data['PriceMomentum'] = (data['Close'] / data['Close'].shift(12) - 1) * 100
         return data
     
-    def getLagReturns(self, data, lags=[12]):
+    def getLagReturns(self, data, lags=[2,5,7,9,12]):
         for n in lags:
             data[f'RETURN_LAG_{n}'] = np.log(data['Close'] / data['Close'].shift(n))
         return data
     
+    def getSMA(self,data):
+        data['SMA200'] = data['Close'].rolling(window=200).mean()
+        data['SM50'] = data['Close'].rolling(window=50).mean()
+        data['SM20'] = data['Close'].rolling(window=20).mean()
+        return data
+
     def PriceAccel(self, data):
-        # 'log_return' doit être calculé dans data_engine
         if 'log_return' in data.columns:
             data['velocity'] = data['log_return']
             data['acceleration'] = data['log_return'].diff()
@@ -63,46 +68,31 @@ class PrimaryFeaturesEngineer:
         return data
         
     def getMacroData(self, data, period="25y"):
-        
-        # 'data.index' est maintenant garanti "naive" grâce à data_engine.py
-        
-        # Télécharger DXY via yfinance
         try:
             dxy = yf.download("DX-Y.NYB", period=period, interval="1d", progress=False)['Close']
-            
-            # --- CORRECTION 1: Standardiser DXY ---
             if dxy.index.tz is not None:
                 dxy.index = dxy.index.tz_localize(None) 
-            
             data['DXY'] = dxy.reindex(data.index, method='ffill')
             
         except Exception as e:
             print(f"Warn: Impossible de télécharger DXY: {e}")
             data['DXY'] = np.nan # Mettre NaN en cas d'échec
-
-        # Télécharger TWI via FRED
         try:
-            # pandas_datareader a besoin de dates simples (str)
             start_date = data.index.min().strftime('%Y-%m-%d')
             end_date = data.index.max().strftime('%Y-%m-%d')
             
             twi = web.DataReader("DTWEXBGS", "fred", start=start_date, end=end_date)
             twi = twi.resample("D").last() 
 
-            # FRED est déjà 'naive', pas besoin de convertir le TZ
             data['TWI'] = twi['DTWEXBGS'].reindex(data.index, method='ffill')
             
         except Exception as e:
             print(f"Warn: Impossible de télécharger TWI (FRED): {e}")
-            data['TWI'] = np.nan # Mettre NaN en cas d'échec
-        
-        # --- CORRECTION 2: Gérer les NaNs de manière robuste ---
-        # Remplir les NaNs partiels (bfill/ffill)
+            data['TWI'] = np.nan
+            
         data['DXY'] = data['DXY'].ffill().bfill() 
         data['TWI'] = data['TWI'].ffill().bfill() 
 
-        # Remplir les NaNs restants (colonnes entièrement vides) avec 0
-        # pour empêcher le dropna() de strategy.py de tout supprimer.
         data['DXY'] = data['DXY'].fillna(0)
         data['TWI'] = data['TWI'].fillna(0)
                 
