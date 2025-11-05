@@ -45,10 +45,6 @@ class ModelEngine:
 
     # --- FONCTION train_model ENTIÈREMENT MISE À JOUR ---
     def train_model(self, model, X, y, sample_weights=None, model_type='primary'):
-        """
-        Effectue une validation croisée (CV) pour les scores, 
-        puis entraîne le modèle final sur toutes les données.
-        """
         if model_type == 'primary':
             scaler = self.primary_scaler
         else: # 'meta'

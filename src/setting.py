@@ -39,18 +39,26 @@ riskMax_trade = 0.02*capital
 leverage = 30
 
 
-# grid seaach params and tunning params
+# --- Primary model (ex: RandomForest, XGBoost, LightGBM) ---
 primary_model_params = {
-    "n_estimators" : [50,100,200,300],  
-    "max_depth" : [5,10,15,20],
+    "n_estimators": [100, 200, 300, 500],
+    "max_depth": [5, 10, 15, 20, None],
+    "max_features": ["sqrt", "log2", None],
+    "min_samples_split": [2, 5, 10],
+    "min_samples_leaf": [1, 2, 4],
+    "bootstrap": [True, False],
+    "class_weight": ["balanced", None],
 }
-
 
 meta_model_params = {
-    "n_estimators" : [50,100,200,300],
-    "max_depth" : [5,10,15,20],
+    "n_estimators": [100, 200, 300, 500],
+    "max_depth": [5, 10, 15, 20, None],
+    "max_features": ["sqrt", "log2", None],
+    "min_samples_split": [2, 5, 10],
+    "min_samples_leaf": [1, 2, 4],
+    "bootstrap": [True, False],
+    "class_weight": ["balanced", None],
 }
-
 #embargo
 embargo = 0.01
 
@@ -96,5 +104,12 @@ equity_tickers = [
     "GLD",    # Or (commodity proxy)
     "USO"     # Pétrole brut (commodity proxy)
 ]
+
+yield_dict = { 
+    'USD': 'DGS10',          # US 10-Year Treasury Constant Maturity Rate
+    'EUR': 'IRLTLT01EZM156N',# Euro Area 10-Year Government Bond Yield
+    'CAD': 'IRLTLT01CAM156N',# Canada 10-Year Government Bond Yield
+    'JPY': 'IRLTLT01JPM156N' # Japan 10-Year Government Bond Yield
+}
 
 #plotly and backtest visualization params

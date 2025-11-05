@@ -60,16 +60,16 @@ if __name__ == "__main__":
     # --- Configuration de l'exécution ---
     
     # Mettre à True pour forcer le ré-entraînement de tous les modèles
-    FORCE_RETRAIN_MODELS = False
+    FORCE_RETRAIN_MODELS = True
     
     # Mettre à True pour lancer le (long) processus d'optimisation (GridSearch)
-    OPTIMIZE_MODELS = False
+    OPTIMIZE_MODELS = True
     
     # Mettre à True pour calculer les backtests (peut être long)
     RUN_BACKTESTS = True
     
     # Choisir la liste de tickers
-    tickers_to_run = fx_tickers# Pour un test rapide
+    tickers_to_run = [' EURUSD=X']# Pour un test rapide
     #tickers_to_run = fx_tickers # Pour la "production"
     
     print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")

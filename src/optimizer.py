@@ -25,10 +25,6 @@ class StrategyOptimizer:
             self.param_grid = meta_model_params
 
     def optimize(self, X, y, sample_weights=None):
-        """
-        Effectue une recherche par grille (GridSearch) avec PurgedKFold.
-        RETOURNE : (meilleur_modele, meilleure_precision, meilleur_f1_score)
-        """
         print(f"Début de l'optimisation pour le modèle {self.model_type}...")
         
         X_scaled = self.scaler.fit_transform(X) # Fitter le scaler ici

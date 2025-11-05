@@ -1,8 +1,8 @@
-import pandas as pd
 import numpy as np
 import yfinance as yf
 import pandas_datareader.data as web
 from sklearn.metrics import accuracy_score, f1_score
+import pandas as pd
 
 
 class PrimaryFeaturesEngineer:
@@ -17,6 +17,17 @@ class PrimaryFeaturesEngineer:
         data['RSI'] = 100 - (100 / (1 + rs))
         return data
     
+    # def getYieldSpread(self,data,ticker):
+        # try:
+        #     if ticker is None:
+        #         return data 
+        #     return data
+        # else:
+
+        
+        # except Exception as e:
+        #     return
+
     def PriceMomentum(self, data):
         data['PriceMomentum'] = (data['Close'] / data['Close'].shift(12) - 1) * 100
         return data
