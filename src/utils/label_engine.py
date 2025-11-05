@@ -283,25 +283,12 @@ class MetaLabel:
         pass
 
     def metaLabeling(self, primary_predictions, label_returns):
-        """
-        Crée les labels pour le méta-modèle.
-        Le but est de prédire si un signal du modèle primaire sera profitable.
-        Label = 1 si (signal != 0 ET trade profitable)
-        Label = 0 sinon
-        
-        CORRIGÉ : Renvoie une pd.Series avec l'index de label_returns.
-        """
-        
-        # S'assurer que label_returns est une Series pour préserver l'index
         if not isinstance(label_returns, pd.Series):
             try:
-                # Si ce n'est pas une Series, on suppose qu'il n'y a pas d'index à sauver
-                # (ceci ne devrait pas arriver dans votre pipeline)
                 label_returns = pd.Series(label_returns)
             except:
                  raise TypeError("label_returns doit être convertible en pandas.Series.")
         
-        # Obtenir les valeurs numpy pour le calcul
         if isinstance(primary_predictions, pd.Series):
             primary_predictions_values = primary_predictions.values
         else:
@@ -309,14 +296,11 @@ class MetaLabel:
 
         label_returns_values = label_returns.values
 
-        # Logique de calcul (inchangée)
         model_predictions = (primary_predictions_values != 0)  # True si signal
         actual_profitable = (label_returns_values > 0)         # True si profitable
         
         meta_labels_values = (model_predictions & actual_profitable).astype(int)
         
-        # --- CORRECTION CLÉ ---
-        # Retourner une Series, en utilisant l'index de label_returns pour l'alignement
         meta_labels_series = pd.Series(
             meta_labels_values, 
             index=label_returns.index, 

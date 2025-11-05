@@ -86,6 +86,8 @@ class Strategy:
         # 3. Labels Primaires...
         print("Calcul des labels primaires...")
         self.data = self.label_engine.getLabels(self.data)
+        self.data = self.data[self.data['Target'] != 0].copy()
+        print(f"Distribution des classes après filtrage:\n{self.data['Target'].value_counts()}")
         self.data['SampleWeight'] = self.label_engine.getSampleWeight(
             labels=self.data['Target'], 
             features=self.data_features, 
