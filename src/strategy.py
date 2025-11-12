@@ -4,8 +4,7 @@ import numpy as np
 import os
 import joblib
 
-# Import des settings et des moteurs utilitaires
-# (J'ai corrigé vos imports pour qu'ils soient cohérents)
+
 from setting import capital, riskMax_trade
 from utils.data_engine import DataEngineer
 from utils.features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
@@ -65,13 +64,7 @@ class Strategy:
             print(f"Aucune donnée LTF (1d) chargée pour {self.ticker}. Arrêt.")
             return False
         
-        # 2. Création des données HTF (Weekly) par ré-échantillonnage
-        print("Ré-échantillonnage des données '1d' en '1w' (HTF)...")
-        agg_rules = {
-            'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
-        }
-        htf_data = self.data.resample('W').agg(agg_rules).dropna()
-
+    
         # 2. Features Primaires (avec les fonctions CORRIGÉES)
         print("Calcul des features primaires...")
         self.data = self.feature_engine.getRSI(self.data)
@@ -87,10 +80,8 @@ class Strategy:
         
         # --- NOUVELLES FEATURES ---
         self.data = self.feature_engine.getYieldSpread(self.data, self.ticker)
-        self.data = self.feature_engine.add_trend_features(self.data)
-        self.data = self.feature_engine.add_mtf_features(self.data, htf_data) 
+        #self.data = self.feature_engine.add_trend_features(self.data)
 
-        # Création du DataFrame de features (avec la fonction CORRIGÉE)
         self.data_features = self.feature_engine.getFeaturesDataSet(self.data)
         
         # Nettoyage final et alignement
@@ -151,7 +142,7 @@ class Strategy:
             # CORRIGÉ : Sauvegarde avec la liste des features
             self.model_engine.save_model(
                 self.primary_model, primary_model_path, 
-                model_type='primary', feature_names=current_primary_features
+                model_type='primary'
             )
         
         # Prédiction

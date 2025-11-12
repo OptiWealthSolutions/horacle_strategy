@@ -162,42 +162,24 @@ class PrimaryFeaturesEngineer:
         data['TWI'] = data['TWI'].fillna(0)
                 
         return data
-    def add_trend_features(self, data):
-        print("Calcul des features de tendance (ADX, MA Cross)...")
-        adx_indicator = ADXIndicator(high=data['High'], low=data['Low'], close=data['Close'], window=14)
-        data['ADX_14'] = adx_indicator.adx() # Force de la tendance
-        data['ADX_pos'] = adx_indicator.adx_pos() # Force directionnelle positive
-        data['ADX_neg'] = adx_indicator.adx_neg() # Force directionnelle négative
     
-        sma_50 = data['Close'].rolling(window=50).mean()
-        sma_200 = data['Close'].rolling(window=200).mean()
-        
-        data['pct_above_SMA200'] = (data['Close'] / sma_200) - 1
+    # def add_trend_features(self, data):
+    #     print("Calcul des features de tendance (ADX, MA Cross)...")
+    #     adx_indicator = ADXIndicator(high=data['High'], low=data['Low'], close=data['Close'], window=14)
+    #     data['ADX_14'] = adx_indicator.adx() # Force de la tendance
+    #     data['ADX_pos'] = adx_indicator.adx_pos() # Force directionnelle positive
+    #     data['ADX_neg'] = adx_indicator.adx_neg() # Force directionnelle négative
     
-        data['SMA_50_vs_SMA_200'] = (sma_50 / sma_200) - 1
-
-        return data
-
-    def add_mtf_features(self, ltf_data, htf_data):
-
-        print("Calcul des features Multi-TimeFrame (MTF)...")
-        if htf_data.empty:
-            print("Avertissement: Données HTF vides, pas de features MTF ajoutées.")
-            return ltf_data
-
-        htf_features = pd.DataFrame(index=htf_data.index)
-        htf_features['HTF_RSI'] = rsi(htf_data['Close'], window=14)
-        htf_features['HTF_SMA_20'] = htf_data['Close'].rolling(window=20).mean()
-
-        merged_data = ltf_data.join(htf_features)
+    #     sma_50 = data['Close'].rolling(window=50).mean()
+    #     sma_200 = data['Close'].rolling(window=200).mean()
         
-        merged_data['HTF_RSI'] = merged_data['HTF_RSI'].ffill()
-        merged_data['HTF_SMA_20'] = merged_data['HTF_SMA_20'].ffill()
+    #     data['pct_above_SMA200'] = (data['Close'] / sma_200) - 1
+    
+    #     data['SMA_50_vs_SMA_200'] = (sma_50 / sma_200) - 1
 
-        merged_data['pct_above_HTF_SMA_20'] = (merged_data['Close'] / merged_data['HTF_SMA_20']) - 1
-        
-        print("Features MTF ajoutées.")
-        return merged_data
+    #     return data
+
+    
 
     def getFeaturesDataSet(self, data):
         # Supprime les colonnes inutiles pour le modèle
@@ -215,7 +197,7 @@ class PrimaryFeaturesEngineer:
 class MetaFeaturesEngineer:
     def __init__(self):
         pass
-
+    
     def getEntropy(self, meta_data_proba):
         probabilities = meta_data_proba.values
         epsilon = 1e-10
@@ -230,40 +212,18 @@ class MetaFeaturesEngineer:
     def getMarginConfidence(self, meta_data_proba):
         probs = meta_data_proba.values
         sorted_probs = np.sort(probs, axis=1)
-        # Gérer le cas où il y a moins de 2 classes (ex: 1 classe)
         if sorted_probs.shape[1] < 2:
             return pd.Series(sorted_probs[:, -1], index=meta_data_proba.index)
-        margin = sorted_probs[:, -1] - sorted_probs[:, -2]  # Plus haute - 2ème plus haute
+        margin = sorted_probs[:, -1] - sorted_probs[:, -2]
         return pd.Series(margin, index=meta_data_proba.index)
     
-    def getF1Scoredata(self, y_true, y_pred, window_size=50):
-        rolling_f1 = []
-        for i in range(len(y_pred)):
-            start_idx = max(0, i - window_size + 1)
-            end_idx = i + 1
-            if end_idx - start_idx >= 10: # Besoin d'assez de données pour un score stable
-                window_f1 = f1_score(
-                    y_true[start_idx:end_idx],
-                    y_pred[start_idx:end_idx],
-                    average='macro',
-                    zero_division=0
-                )
-            else:
-                window_f1 = 0.0
-            rolling_f1.append(window_f1)
-        return pd.Series(rolling_f1, index=y_true.index)
-
-    def getAccuracydata(self, y_true, y_pred, window_size=50):
-        rolling_acc = []
-        for i in range(len(y_pred)):
-            start_idx = max(0, i - window_size + 1)
-            end_idx = i + 1
-            if end_idx - start_idx >= 10:
-                window_acc = accuracy_score(
-                    y_true[start_idx:end_idx],
-                    y_pred[start_idx:end_idx]
-                )
-            else:
-                window_acc = 0.0
-            rolling_acc.append(window_acc)
-        return pd.Series(rolling_acc, index=y_true.index)
+    # --- LA MÉTHODE MANQUANTE EST ICI ---
+    def getMetaFeaturesdata(self, meta_data_proba):
+        """
+        CORRIGÉ : Crée le DataFrame de méta-features sans fuite de données.
+        """
+        meta_features = pd.DataFrame(index=meta_data_proba.index)
+        meta_features['prediction_entropy'] = self.getEntropy(meta_data_proba)
+        meta_features['max_probability'] = self.getMaxProbability(meta_data_proba)
+        meta_features['margin_confidence'] = self.getMarginConfidence(meta_data_proba)
+        return meta_features
