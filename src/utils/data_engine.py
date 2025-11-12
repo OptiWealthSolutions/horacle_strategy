@@ -37,3 +37,5 @@ class DataEngineer:
             data.dropna(inplace=True)
 
         return data
+    def fetchMacroData():
+        pass

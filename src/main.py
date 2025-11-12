@@ -66,10 +66,10 @@ if __name__ == "__main__":
     OPTIMIZE_MODELS = False
     
     # Mettre à True pour calculer les backtests (peut être long)
-    RUN_BACKTESTS = True
+    RUN_BACKTESTS = False
     
     # Choisir la liste de tickers
-    tickers_to_run = [' EURUSD=X']# Pour un test rapide
+    tickers_to_run = ["EURAUD=X","EURNZD=X","USDNZD=X","USDAUD=X"]# Pour un test rapide
     #tickers_to_run = fx_tickers # Pour la "production"
     
     print(f"Démarrage de l'exécution pour {len(tickers_to_run)} tickers...")

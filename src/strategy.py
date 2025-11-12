@@ -5,6 +5,7 @@ import os
 import joblib
 
 # Import des settings et des moteurs utilitaires
+# (J'ai corrigé vos imports pour qu'ils soient cohérents)
 from setting import capital, riskMax_trade
 from utils.data_engine import DataEngineer
 from utils.features_engine import PrimaryFeaturesEngineer, MetaFeaturesEngineer
@@ -14,18 +15,16 @@ from utils.risk_engine import BetSizing
 from optimizer import StrategyOptimizer
 from utils.reporting import summarize_signal
 from analysis_engine import AnalysisEngine
+
 class Strategy:
     def __init__(self, ticker, model_dir="models"):
         self.ticker = ticker
         self.model_dir = model_dir
         os.makedirs(self.model_dir, exist_ok=True)
 
-        # --- Initialisation des Moteurs ---
-        # MODIFIÉ : Créer deux moteurs de données, un pour le LTF et un pour le HTF
-        self.ltf_data_engine = DataEngineer(self.ticker, interval="1d", period="25y")
-        self.htf_data_engine = DataEngineer(self.ticker, interval="5d", period="25y")
-        # --- Moteurs ---
-        self.data_engine = DataEngineer(self.ticker)
+        # --- Initialisation des Moteurs (NETTOYÉ) ---
+        self.data_engine = DataEngineer(self.ticker) # Un seul moteur pour '1d'
+        
         self.feature_engine = PrimaryFeaturesEngineer()
         self.label_engine = PrimaryLabel()
         self.model_engine = ModelEngine()
@@ -47,8 +46,6 @@ class Strategy:
         self.last_proba = None
         self.last_proba_meta = None
         self.conf_score = None
-        
-        # --- NOUVEAU : Stockage des scores ---
         self.primary_acc = None
         self.primary_f1 = None
         self.meta_acc = None
@@ -61,43 +58,61 @@ class Strategy:
     def run_pipeline(self, force_retrain=False, optimize_models=False):
         print(f"\n--- Exécution du pipeline pour {self.ticker} ---")
         
-        self.data = self.ltf_data_engine.getDataLoad()
-        self.htf_data = self.htf_data_engine.getDataLoad()
+        # 1. Chargement des données
+        self.data = self.data_engine.getDataLoad() # Charge '1d'
         
         if self.data.empty:
             print(f"Aucune donnée LTF (1d) chargée pour {self.ticker}. Arrêt.")
             return False
         
+        # 2. Création des données HTF (Weekly) par ré-échantillonnage
+        print("Ré-échantillonnage des données '1d' en '1w' (HTF)...")
+        agg_rules = {
+            'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'
+        }
+        htf_data = self.data.resample('W').agg(agg_rules).dropna()
+
+        # 2. Features Primaires (avec les fonctions CORRIGÉES)
         print("Calcul des features primaires...")
         self.data = self.feature_engine.getRSI(self.data)
-        self.data = self.feature_engine.getYieldSpread(self.data, self.ticker)
         self.data = self.feature_engine.PriceMomentum(self.data)
-        self.data = self.feature_engine.getLagReturns(self.data, lags=[12])
+        self.data = self.feature_engine.getLagReturns(self.data, lags=[12]) 
         self.data = self.feature_engine.PriceAccel(self.data)
         self.data = self.feature_engine.getPct52WeekLow(self.data)
         self.data = self.feature_engine.getPct52WeekHigh(self.data)
         self.data = self.feature_engine.getVol(self.data)
+        
+        # CORRIGÉ : Utiliser self.data_engine.PERIOD
         self.data = self.feature_engine.getMacroData(self.data, self.data_engine.PERIOD)
         
+        # --- NOUVELLES FEATURES ---
+        self.data = self.feature_engine.getYieldSpread(self.data, self.ticker)
+        self.data = self.feature_engine.add_trend_features(self.data)
+        self.data = self.feature_engine.add_mtf_features(self.data, htf_data) 
+
+        # Création du DataFrame de features (avec la fonction CORRIGÉE)
         self.data_features = self.feature_engine.getFeaturesDataSet(self.data)
+        
+        # Nettoyage final et alignement
         self.data = self.data.dropna()
         self.data_features = self.data_features.reindex(self.data.index).dropna()
         
         if self.data.empty or self.data_features.empty:
             print(f"Données vides après feature engineering pour {self.ticker}. Arrêt.")
             return False
+            
+        current_primary_features = list(self.data_features.columns)
+        print(f"Nombre de features primaires détectées : {len(current_primary_features)}")
 
-        # 3. Labels Primaires...
+        # 3. Labels Primaires
         print("Calcul des labels primaires...")
         self.data = self.label_engine.getLabels(self.data)
-        self.data = self.data[self.data['Target'] != 0].copy()
+        self.data = self.data[self.data['Target'] != 0].copy() # Supprimer classe 0
         print(f"Distribution des classes après filtrage:\n{self.data['Target'].value_counts()}")
-        self.data['SampleWeight'] = self.label_engine.getSampleWeight(
-            labels=self.data['Target'], 
-            features=self.data_features, 
-            timestamps=self.data.index,
-            label_endtimes=self.data['label_exit_date']
-        )
+        
+        # Nous n'utilisons pas la pondération avancée pour l'instant
+        sample_weights = None 
+        
         self.data_features = self.data_features.reindex(self.data.index)
         self.data = self.data.reindex(self.data_features.index)
 
@@ -106,7 +121,12 @@ class Strategy:
         primary_model_path = self.get_model_path('primary')
         
         if not force_retrain and not optimize_models:
-            self.primary_model = self.model_engine.load_model(primary_model_path, model_type='primary')
+            # CORRIGÉ : Appel à load_model avec vérification des features
+            self.primary_model = self.model_engine.load_model(
+                primary_model_path, 
+                model_type='primary',
+                current_feature_names=current_primary_features
+            )
             if self.primary_model is None:
                  force_retrain = True
         
@@ -114,48 +134,41 @@ class Strategy:
             if optimize_models:
                 optimizer = StrategyOptimizer(model_type='primary')
                 self.primary_model, self.primary_acc, self.primary_f1 = optimizer.optimize(
-                    self.data_features, 
-                    self.data['Target'], 
-                    self.data['SampleWeight']
+                    self.data_features, self.data['Target'], sample_weights
                 )
                 self.model_engine.primary_scaler = optimizer.scaler
             else:
                 print("Entraînement du modèle primaire (par défaut)...")
                 self.primary_model = self.model_engine.build_primary_model()
                 self.primary_model, self.primary_acc, self.primary_f1 = self.model_engine.train_model(
-                    self.primary_model, 
-                    self.data_features, 
-                    self.data['Target'], 
-                    self.data['SampleWeight'],
-                    model_type='primary'
+                    self.primary_model, self.data_features, self.data['Target'], 
+                    sample_weights, model_type='primary'
                 )
             
-            # Affichage des scores (seulement si entraîné/optimisé)
             print(f"  > Modèle Primaire - Précision CV: {self.primary_acc:.2%}")
             print(f"  > Modèle Primaire - F1 Score CV: {self.primary_f1:.4f}")
 
-            self.model_engine.save_model(self.primary_model, primary_model_path, model_type='primary')
+            # CORRIGÉ : Sauvegarde avec la liste des features
+            self.model_engine.save_model(
+                self.primary_model, primary_model_path, 
+                model_type='primary', feature_names=current_primary_features
+            )
         
         # Prédiction
         self.primary_predictions, self.meta_data_proba, self.last_proba = self.model_engine.predict(
-            self.primary_model, 
-            self.data_features,
-            model_type='primary'
+            self.primary_model, self.data_features, model_type='primary'
         )
         self.data['primary_signal'] = self.primary_predictions
 
         # 5. Meta Features
         print("Calcul des méta-features...")
-        self.meta_features['prediction_entropy'] = self.meta_feature_engine.getEntropy(self.meta_data_proba)
-        self.meta_features['max_probability'] = self.meta_feature_engine.getMaxProbability(self.meta_data_proba)
-        self.meta_features['margin_confidence'] = self.meta_feature_engine.getMarginConfidence(self.meta_data_proba)
-        self.meta_features['f1_score'] = self.meta_feature_engine.getF1Scoredata(self.data['Target'], self.primary_predictions)
-        self.meta_features['accuracy'] = self.meta_feature_engine.getAccuracydata(self.data['Target'], self.primary_predictions)
+        # --- CORRECTION : FUITE DE DONNÉES (DATA LEAK) SUPPRIMÉE ---
+        # Utilise la fonction corrigée de features_engine.py
+        self.meta_features = self.meta_feature_engine.getMetaFeaturesdata(self.meta_data_proba)
         
         # 6. Meta Label
         self.meta_labels = self.meta_label_engine.metaLabeling(
-            self.primary_predictions, 
-            self.data['label_return']
+            self.primary_predictions, self.data['label_return']
         )
         self.data['meta_label'] = self.meta_labels
         
@@ -165,72 +178,63 @@ class Strategy:
         if self.meta_features.empty:
             print(f"Méta-features vides pour {self.ticker}. Arrêt.")
             return False
+            
+        current_meta_features = list(self.meta_features.columns)
 
         # 7. Meta Modèle
         print("Traitement du méta-modèle...")
         meta_model_path = self.get_model_path('meta')
 
         if not force_retrain and not optimize_models:
-            self.meta_model = self.model_engine.load_model(meta_model_path, model_type='meta')
+            # CORRIGÉ : Appel à load_model avec vérification
+            self.meta_model = self.model_engine.load_model(
+                meta_model_path, model_type='meta',
+                current_feature_names=current_meta_features
+            )
             if self.meta_model is None:
                 force_retrain = True
                 
         if force_retrain or optimize_models or self.meta_model is None:
             if optimize_models:
                 meta_optimizer = StrategyOptimizer(model_type='meta')
-                # --- MODIFICATION : Capturer les 3 retours ---
                 self.meta_model, self.meta_acc, self.meta_f1 = meta_optimizer.optimize(
-                    self.meta_features, 
-                    self.meta_labels
+                    self.meta_features, self.meta_labels
                 )
                 self.model_engine.meta_scaler = meta_optimizer.scaler
             else:
                 print("Entraînement du méta-modèle (par défaut)...")
                 self.meta_model = self.model_engine.build_meta_model()
-                # --- MODIFICATION : Capturer les 3 retours ---
                 self.meta_model, self.meta_acc, self.meta_f1 = self.model_engine.train_model(
-                    self.meta_model, 
-                    self.meta_features, 
-                    self.meta_labels,
-                    model_type='meta'
+                    self.meta_model, self.meta_features, 
+                    self.meta_labels, model_type='meta'
                 )
             
-            # Affichage des scores (seulement si entraîné/optimisé)
             print(f"  > Méta-Modèle - Précision CV: {self.meta_acc:.2%}")
             print(f"  > Méta-Modèle - F1 Score CV: {self.meta_f1:.4f}")
             
-            self.model_engine.save_model(self.meta_model, meta_model_path, model_type='meta')
+            # CORRIGÉ : Sauvegarde avec la liste des features
+            self.model_engine.save_model(
+                self.meta_model, meta_model_path, 
+                model_type='meta', feature_names=current_meta_features
+            )
         
         # Prédiction Méta
         meta_preds, _, self.last_proba_meta = self.model_engine.predict(
-            self.meta_model, 
-            self.meta_features,
-            model_type='meta'
+            self.meta_model, self.meta_features, model_type='meta'
         )
-        self.data['meta_signal'] = pd.Series(meta_preds, index=self.meta_features.index)
-        self.data['meta_signal'] = self.data['meta_signal'].fillna(0)
-        self.data['meta_signal'] = pd.Series(meta_preds, index=self.meta_features.index)
-        self.data['meta_signal'] = self.data['meta_signal'].fillna(0) # 0 par défaut
+        self.data['meta_signal'] = pd.Series(meta_preds, index=self.meta_features.index).fillna(0)
 
         # 8. Calcul du score de confiance final
         self.conf_score = self.model_engine.computeConfidenceScore(self.last_proba, self.last_proba_meta)
         print(f"Pipeline terminé pour {self.ticker}. Score de confiance: {self.conf_score:.2%}")
         
         
-        # --- SECTION D'ANALYSE AJOUTÉE ---
         # 9. Générer le rapport d'analyse détaillé
         try:
             analyzer = AnalysisEngine(self.ticker)
-            
-            # Aligner les données pour l'analyse
-            
-            # 1. Données Primaires (alignées sur data_features)
             aligned_primary_true = self.data.loc[self.data_features.index, 'Target']
             aligned_primary_pred = self.data.loc[self.data_features.index, 'primary_signal']
-            
-            # 2. Données Méta (alignées sur meta_features)
             aligned_meta_true = self.meta_labels.reindex(self.meta_features.index)
-            # 'meta_preds' est un np.array, il faut le convertir en Série avec le bon index
             aligned_meta_pred = pd.Series(meta_preds, index=self.meta_features.index)
 
             analyzer.generate_analysis_report(
@@ -242,9 +246,6 @@ class Strategy:
         except Exception as e:
             print(f"Erreur lors de la génération du rapport d'analyse: {e}")
 
-        # 8. Calcul du score de confiance final
-        self.conf_score = self.model_engine.computeConfidenceScore(self.last_proba, self.last_proba_meta)
-        print(f"Pipeline terminé pour {self.ticker}. Score de confiance: {self.conf_score:.2%}")
         return True
 
     def get_trade_signal(self):
@@ -261,30 +262,23 @@ class Strategy:
         current_capital = capital 
         risk_pct = riskMax_trade / capital
         
-        if 'log_return' in self.data.columns and not self.data['log_return'].empty:
+        if 'log_return' in self.data.columns and not self.data.empty:
             atr_value = self.data['log_return'].rolling(14).std().iloc[-1]
         else:
             atr_value = 0.01
         
         if 'atr_value' not in self.data.columns:
             self.data['atr_value'] = np.nan
-        self.data.loc[self.data.index[-1], 'atr_value'] = atr_value
+            
+        if not self.data.empty:
+            self.data.loc[self.data.index[-1], 'atr_value'] = atr_value
         
         shares, stop = self.bet_sizer.position_size_with_atr(
-            current_capital, 
-            risk_pct,
-            last_price, 
-            atr_value
+            current_capital, risk_pct, last_price, atr_value
         )
         
         summary_data = summarize_signal(
-            self.data,
-            self.ticker, 
-            shares, 
-            stop, 
-            last_price, 
-            current_capital, 
-            risk_pct,
-            self.conf_score
+            self.data, self.ticker, shares, stop, 
+            last_price, current_capital, risk_pct, self.conf_score
         )
         return summary_data
